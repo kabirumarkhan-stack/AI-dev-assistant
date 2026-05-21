@@ -3,54 +3,104 @@ name: Welcome
 on:
   issues:
     types: [opened]
+
   pull_request_target:
     types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+  contents: read
 
 jobs:
   welcome:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/github-script@v7
+      - name: Welcome first-time contributors
+        uses: actions/github-script@v7
+
         with:
           script: |
-            const isIssue = context.payload.issue !== undefined;
             const sender = context.payload.sender.login;
             const repo = context.repo;
 
-            // Check if first-time contributor
-            const { data: issues } = await github.rest.issues.listForRepo({
-              ...repo,
-              creator: sender,
-              state: 'all'
-            });
+            const isIssue =
+              context.payload.issue !== undefined;
 
-            if (issues.length <= 1) {
-              if (isIssue) {
-                await github.rest.issues.createComment({
-                  ...repo,
-                  issue_number: context.payload.issue.number,
-                  body: `👋 Hi @${sender}, thanks for opening your first issue!
-                  
-**Before we proceed, please check:**
-- [ ] Have you read [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md)?
-- [ ] Is this issue already listed? Check [existing issues](../issues)
-- [ ] Is this a GSSoC 2026 contribution? Add the \`gssoc2026\` label
-
-A maintainer will review this soon. Thank you for contributing! 🚀`
-                });
-              } else {
-                await github.rest.issues.createComment({
-                  ...repo,
-                  issue_number: context.payload.pull_request.number,
-                  body: `👋 Hi @${sender}, thanks for your first PR!
-
-**Please confirm before we review:**
-- [ ] Have you read [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md)?
-- [ ] All tests pass locally: \`cd backend && pytest -v\`
-- [ ] This PR is linked to an issue: \`Fixes #issue-number\`
-- [ ] No duplicate work — check open PRs
-
-We'll review shortly. Welcome to QyverixAI! 🎉`
-                });
-              }
+            // Ignore bots
+            if (sender === 'github-actions[bot]') {
+              return;
             }
+
+            // Fetch contributor history
+            const { data: issues } =
+              await github.rest.issues.listForRepo({
+                ...repo,
+                creator: sender,
+                state: 'all',
+                per_page: 100
+              });
+
+            // First interaction only
+            if (issues.length > 1) {
+              return;
+            }
+
+            // =========================================
+            // Welcome Issue
+            // =========================================
+            if (isIssue) {
+
+              await github.rest.issues.createComment({
+                ...repo,
+                issue_number: context.payload.issue.number,
+
+                body:
+`👋 Hi @${sender}, welcome to QyverixAI 🚀
+
+Thank you for opening your first issue.
+
+Before contributing, please make sure:
+
+- Read CONTRIBUTING.md
+- Check existing issues before creating a new one
+- Follow the issue template properly
+- Add useful details and reproduction steps if reporting a bug
+
+Helpful links:
+- Issues:
+  https://github.com/${repo.owner}/${repo.repo}/issues
+- Contribution Guide:
+  https://github.com/${repo.owner}/${repo.repo}/blob/main/CONTRIBUTING.md
+
+A maintainer will review your issue soon 💙`
+              });
+
+              return;
+            }
+
+            // =========================================
+            // Welcome Pull Request
+            // =========================================
+            await github.rest.issues.createComment({
+              ...repo,
+              issue_number:
+                context.payload.pull_request.number,
+
+              body:
+`🎉 Hi @${sender}, thank you for your first pull request to QyverixAI!
+
+Before review, please confirm:
+
+- Tests pass locally
+- PR is linked to an issue
+- PR follows the contribution guidelines
+- No merge conflicts exist
+
+Helpful links:
+- Contribution Guide:
+  https://github.com/${repo.owner}/${repo.repo}/blob/main/CONTRIBUTING.md
+
+A maintainer will review your PR soon 🚀`
+            });
