@@ -21,19 +21,15 @@ jobs:
             const sender = context.payload.comment.user.login;
             const issue = context.payload.issue;
 
-            // Ignore bots and maintainer
-            const ignoredUsers = [
-              'github-actions[bot]'
-            ];
+            // Ignore bots
+            if (sender === 'github-actions[bot]') return;
 
-            if (ignoredUsers.includes(sender)) return;
-
-            // Only continue for /assign
+            // Only run for /assign
             if (comment !== '/assign') return;
 
+            // Check if issue already assigned
             const assignees = issue.assignees || [];
 
-            // Already assigned to someone else
             const assignedToOthers = assignees.some(
               a => a.login !== sender
             );
@@ -51,10 +47,7 @@ jobs:
 
 This issue is already assigned to ${assignedUsers}.
 
-Please explore another available issue:
-https://github.com/imDarshanGK/AI-dev-assistant/issues
-
-Thank you for your interest in contributing 🚀`
+Please choose another available issue 🚀`
               });
 
               return;
@@ -76,6 +69,40 @@ Thank you for your interest in contributing 🚀`
               return;
             }
 
+            // Check if user already has another assigned issue
+            const { data: openIssues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              assignee: sender
+            });
+
+            // Ignore current issue and pull requests
+            const otherAssignedIssues = openIssues.filter(
+              i => i.number !== issue.number && !i.pull_request
+            );
+
+            if (otherAssignedIssues.length > 0) {
+
+              const issueList = otherAssignedIssues
+                .map(i => `#${i.number}`)
+                .join(', ');
+
+              await github.rest.issues.createComment({
+                ...context.repo,
+                issue_number: issue.number,
+                body: `Hi @${sender} 👋
+
+You already have assigned open issue(s): ${issueList}
+
+Please complete your current assigned issue before requesting a new one.
+
+This helps keep contributions active and prevents issue blocking 🚀`
+              });
+
+              return;
+            }
+
             // Assign issue
             await github.rest.issues.addAssignees({
               ...context.repo,
@@ -83,23 +110,17 @@ Thank you for your interest in contributing 🚀`
               assignees: [sender]
             });
 
-            // Confirmation comment
+            // Success comment
             await github.rest.issues.createComment({
               ...context.repo,
               issue_number: issue.number,
               body: `✅ Assigned to @${sender}
 
-Please complete the issue within 7 days.
+Please complete this issue within 7 days.
 
-Next steps:
-1. Fork the repository
-2. Create a new branch
-3. Read CONTRIBUTING.md:
-https://github.com/imDarshanGK/AI-dev-assistant/blob/main/CONTRIBUTING.md
-4. Run tests before opening a PR:
-\`cd backend && pytest -v\`
-5. Open a PR with:
-\`Fixes #${issue.number}\`
+Before starting:
+- Read CONTRIBUTING.md
+- Run tests before opening a PR
 
 Happy coding 🚀`
             });
