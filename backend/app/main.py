@@ -14,7 +14,7 @@ from collections import defaultdict
 from contextlib import asynccontextmanager
 
 
-from .routers import explanation, debugging, suggestions, analyze, subscribe
+from .routers import explanation, debugging, suggestions, analyze, subscribe, share
 from .services.scheduler import start_scheduler, stop_scheduler
 
 from .schemas import HealthResponse
@@ -124,6 +124,7 @@ app.include_router(debugging.router,   prefix="/debugging",   tags=["Debugging"]
 app.include_router(suggestions.router, prefix="/suggestions", tags=["Suggestions"])
 app.include_router(analyze.router,     prefix="/analyze",     tags=["Full Analysis"])
 app.include_router(subscribe.router,   prefix="/subscribe",   tags=["Subscription"])
+app.include_router(share.router)
 
 
 
